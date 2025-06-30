@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -15,88 +15,20 @@ import { Badge } from "@/components/ui/badge"
 import { CheckCircle, Star, Sparkles, Heart, Award } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
-const mealPlans = [
-  {
-    id: 1,
-    name: "Diet Plan",
-    price: "Rp30,000",
-    pricePerMeal: 30000,
-    description: "Perfect for weight management and healthy lifestyle",
-    image: "/placeholder.svg?height=300&width=400",
-    color: "from-green-400 to-emerald-500",
-    icon: <Heart className="h-6 w-6" />,
-    features: [
-      "Low-calorie balanced meals",
-      "High fiber content",
-      "Portion-controlled servings",
-      "Fresh vegetables and lean proteins",
-    ],
-    nutritionalInfo: {
-      calories: "400-500 per meal",
-      protein: "25-30g",
-      carbs: "40-50g",
-      fat: "15-20g",
-    },
-    sampleMeals: ["Grilled chicken with quinoa salad", "Steamed fish with brown rice", "Turkey wrap with mixed greens"],
-  },
-  {
-    id: 2,
-    name: "Protein Plan",
-    price: "Rp40,000",
-    pricePerMeal: 40000,
-    description: "High-protein meals for active individuals and fitness enthusiasts",
-    image: "/placeholder.svg?height=300&width=400",
-    color: "from-blue-400 to-indigo-500",
-    icon: <Award className="h-6 w-6" />,
-    features: [
-      "High-quality protein sources",
-      "Muscle-building nutrients",
-      "Post-workout recovery meals",
-      "Balanced macronutrients",
-    ],
-    nutritionalInfo: {
-      calories: "500-600 per meal",
-      protein: "35-45g",
-      carbs: "45-55g",
-      fat: "20-25g",
-    },
-    sampleMeals: [
-      "Grilled salmon with sweet potato",
-      "Beef stir-fry with brown rice",
-      "Chicken breast with quinoa bowl",
-    ],
-  },
-  {
-    id: 3,
-    name: "Royal Plan",
-    price: "Rp60,000",
-    pricePerMeal: 60000,
-    description: "Premium gourmet meals with the finest ingredients",
-    image: "/placeholder.svg?height=300&width=400",
-    color: "from-purple-400 to-pink-500",
-    icon: <Sparkles className="h-6 w-6" />,
-    features: [
-      "Premium organic ingredients",
-      "Gourmet chef preparations",
-      "Exotic and diverse cuisines",
-      "Restaurant-quality presentation",
-    ],
-    nutritionalInfo: {
-      calories: "600-700 per meal",
-      protein: "30-40g",
-      carbs: "50-60g",
-      fat: "25-30g",
-    },
-    sampleMeals: [
-      "Wagyu beef with truffle risotto",
-      "Pan-seared sea bass with asparagus",
-      "Lamb chops with herb-crusted potatoes",
-    ],
-  },
-]
-
 export default function MenuPage() {
-  const [selectedPlan, setSelectedPlan] = useState<(typeof mealPlans)[0] | null>(null)
+  const [mealPlans, setMealPlans] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedPlan, setSelectedPlan] = useState<any | null>(null)
+
+  useEffect(() => {
+    fetch("/api/meal-plan")
+      .then(res => res.json())
+      .then(data => {
+        setMealPlans(data)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [])
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -205,7 +137,7 @@ export default function MenuPage() {
 
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    {plan.features.slice(0, 3).map((feature, featureIndex) => (
+                    {Array.isArray(plan.features) && plan.features.slice(0, 3).map((feature: string, featureIndex: number) => (
                       <motion.div
                         key={featureIndex}
                         className="flex items-center gap-2"
@@ -278,7 +210,7 @@ export default function MenuPage() {
                               >
                                 <h3 className="text-lg font-semibold mb-3">Features</h3>
                                 <div className="space-y-2">
-                                  {plan.features.map((feature, index) => (
+                                  {Array.isArray(plan.features) && plan.features.map((feature: string, index: number) => (
                                     <motion.div
                                       key={index}
                                       className="flex items-center gap-2"
@@ -300,14 +232,14 @@ export default function MenuPage() {
                               >
                                 <h3 className="text-lg font-semibold mb-3">Nutritional Info</h3>
                                 <div className="space-y-2 text-sm">
-                                  {Object.entries(plan.nutritionalInfo).map(([key, value], index) => (
+                                  {Object.entries(plan.nutritionalInfo || {}).map(([key, value]: [string, unknown], index: number) => (
                                     <motion.div
                                       key={key}
                                       initial={{ opacity: 0, y: 10 }}
                                       animate={{ opacity: 1, y: 0 }}
                                       transition={{ duration: 0.2, delay: 0.3 + index * 0.05 }}
                                     >
-                                      <strong className="capitalize">{key}:</strong> {value}
+                                      <strong className="capitalize">{key}:</strong> {String(value)}
                                     </motion.div>
                                   ))}
                                 </div>
@@ -321,7 +253,7 @@ export default function MenuPage() {
                             >
                               <h3 className="text-lg font-semibold mb-3">Sample Meals</h3>
                               <div className="grid gap-2">
-                                {plan.sampleMeals.map((meal, index) => (
+                                {Array.isArray(plan.sampleMeals) && plan.sampleMeals.map((meal: string, index: number) => (
                                   <motion.div
                                     key={index}
                                     className="flex items-center gap-2"

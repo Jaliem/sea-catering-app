@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -19,55 +19,8 @@ import {
 import { Star, ChevronLeft, ChevronRight, Quote, Heart, Sparkles } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
-const sampleTestimonials = [
-  {
-    id: 1,
-    name: "Sarah Johnson",
-    rating: 5,
-    message:
-      "SEA Catering has completely transformed my eating habits! The Diet Plan is perfect for my weight loss journey, and the meals are absolutely delicious. Highly recommended!",
-    date: "2 weeks ago",
-    avatar: "👩‍💼",
-  },
-  {
-    id: 2,
-    name: "Michael Chen",
-    rating: 5,
-    message:
-      "As a fitness enthusiast, the Protein Plan is exactly what I needed. High-quality ingredients, perfect portions, and always delivered on time. Outstanding service!",
-    date: "1 month ago",
-    avatar: "👨‍💪",
-  },
-  {
-    id: 3,
-    name: "Priya Sharma",
-    rating: 4,
-    message:
-      "The Royal Plan feels like having a personal chef! Every meal is a gourmet experience. The variety and quality are exceptional. Worth every rupiah!",
-    date: "3 weeks ago",
-    avatar: "👩‍🍳",
-  },
-  {
-    id: 4,
-    name: "David Wilson",
-    rating: 5,
-    message:
-      "Convenient, healthy, and tasty! SEA Catering has made my busy lifestyle so much easier. No more worrying about meal prep - they've got it covered!",
-    date: "1 week ago",
-    avatar: "👨‍💻",
-  },
-  {
-    id: 5,
-    name: "Lisa Anderson",
-    rating: 5,
-    message:
-      "The customer service is amazing! Brian and the team are always responsive and accommodating. The meals are fresh and perfectly portioned.",
-    date: "2 months ago",
-    avatar: "👩‍🎨",
-  },
-]
-
 export default function TestimonialsSection() {
+  const [testimonials, setTestimonials] = useState<any[]>([])
   const [currentTestimonial, setCurrentTestimonial] = useState(0)
   const [newTestimonial, setNewTestimonial] = useState({
     name: "",
@@ -75,20 +28,44 @@ export default function TestimonialsSection() {
     rating: 5,
   })
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch("/api/testimonial")
+      .then((res) => res.json())
+      .then((data) => {
+        setTestimonials(data)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [])
 
   const nextTestimonial = () => {
-    setCurrentTestimonial((prev) => (prev + 1) % sampleTestimonials.length)
+    setCurrentTestimonial((prev) => (prev + 1) % testimonials.length)
   }
 
   const prevTestimonial = () => {
-    setCurrentTestimonial((prev) => (prev - 1 + sampleTestimonials.length) % sampleTestimonials.length)
+    setCurrentTestimonial((prev) => (prev - 1 + testimonials.length) % testimonials.length)
   }
 
-  const handleSubmitTestimonial = (e: React.FormEvent) => {
+  const handleSubmitTestimonial = async (e: React.FormEvent) => {
     e.preventDefault()
-    alert("Thank you for your testimonial! It will be reviewed and published soon.")
-    setNewTestimonial({ name: "", message: "", rating: 5 })
-    setIsDialogOpen(false)
+    try {
+      const response = await fetch('/api/testimonial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTestimonial),
+      })
+      if (!response.ok) throw new Error('Failed to submit testimonial')
+      // Optionally, fetch the updated testimonials list
+      const updated = await fetch('/api/testimonial').then(res => res.json())
+      setTestimonials(updated)
+      alert('Thank you for your testimonial! It will be reviewed and published soon.')
+      setNewTestimonial({ name: '', message: '', rating: 5 })
+      setIsDialogOpen(false)
+    } catch (err) {
+      alert('There was an error submitting your testimonial. Please try again.')
+    }
   }
 
   const renderStars = (rating: number, interactive = false, onRatingChange?: (rating: number) => void) => {
@@ -112,6 +89,18 @@ export default function TestimonialsSection() {
         />
       </motion.button>
     ))
+  }
+
+  if (loading) {
+    return (
+      <div className="py-20 px-4">
+        <div className="container mx-auto max-w-6xl">
+          <div className="text-center">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Loading Testimonials...</h2>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -184,21 +173,32 @@ export default function TestimonialsSection() {
                     <motion.div whileHover={{ scale: 1.05 }} transition={{ duration: 0.2 }}>
                       <Quote className="h-8 w-8 text-emerald-600 mx-auto mb-4" />
                     </motion.div>
-                    <motion.p
-                      className="text-lg text-gray-700 mb-6 leading-relaxed"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.4, delay: 0.1 }}
-                    >
-                      "{sampleTestimonials[currentTestimonial].message}"
-                    </motion.p>
+                    {testimonials.length > 0 && testimonials[currentTestimonial] ? (
+                      <motion.p
+                        className="text-lg text-gray-700 mb-6 leading-relaxed"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.4, delay: 0.1 }}
+                      >
+                        "{testimonials[currentTestimonial].message}"
+                      </motion.p>
+                    ) : (
+                      <motion.p
+                        className="text-lg text-gray-700 mb-6 leading-relaxed"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.4, delay: 0.1 }}
+                      >
+                        No testimonials available.
+                      </motion.p>
+                    )}
                     <motion.div
                       className="flex items-center justify-center gap-2 mb-4"
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ duration: 0.4, delay: 0.2 }}
                     >
-                      {renderStars(sampleTestimonials[currentTestimonial].rating)}
+                      {renderStars(testimonials[currentTestimonial]?.rating)}
                     </motion.div>
                     <motion.div
                       className="flex items-center justify-center gap-3"
@@ -207,13 +207,13 @@ export default function TestimonialsSection() {
                       transition={{ duration: 0.4, delay: 0.3 }}
                     >
                       <motion.span className="text-3xl" whileHover={{ scale: 1.1 }} transition={{ duration: 0.2 }}>
-                        {sampleTestimonials[currentTestimonial].avatar}
+                        {testimonials[currentTestimonial]?.avatar}
                       </motion.span>
                       <div>
                         <h3 className="font-semibold text-lg text-gray-900">
-                          {sampleTestimonials[currentTestimonial].name}
+                          {testimonials[currentTestimonial]?.name}
                         </h3>
-                        <p className="text-sm text-gray-500">{sampleTestimonials[currentTestimonial].date}</p>
+                        <p className="text-sm text-gray-500">{testimonials[currentTestimonial]?.date}</p>
                       </div>
                     </motion.div>
                   </motion.div>
@@ -233,7 +233,7 @@ export default function TestimonialsSection() {
 
               {/* Testimonial indicators */}
               <div className="flex justify-center gap-2">
-                {sampleTestimonials.map((_, index) => (
+                {testimonials.map((_, index) => (
                   <motion.button
                     key={index}
                     onClick={() => setCurrentTestimonial(index)}
@@ -257,7 +257,7 @@ export default function TestimonialsSection() {
           transition={{ duration: 0.6, staggerChildren: 0.1 }}
           viewport={{ once: true }}
         >
-          {sampleTestimonials.map((testimonial, index) => (
+          {testimonials.map((testimonial, index) => (
             <motion.div
               key={testimonial.id}
               initial={{ opacity: 0, y: 30 }}
