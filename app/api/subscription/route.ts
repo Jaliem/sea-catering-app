@@ -7,6 +7,23 @@ const prisma = new PrismaClient()
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
+    // Calculate total price
+    let totalPrice = 0;
+    if (
+      data.plan &&
+      Array.isArray(data.mealTypes) &&
+      data.mealTypes.length > 0 &&
+      Array.isArray(data.deliveryDays) &&
+      data.deliveryDays.length > 0
+    ) {
+      const planPrices: Record<string, number> = {
+        diet: 30000,
+        protein: 40000,
+        royal: 60000,
+      };
+      const planPrice = planPrices[data.plan] || 0;
+      totalPrice = planPrice * data.mealTypes.length * data.deliveryDays.length * 4.3;
+    }
     // Only send valid fields to Prisma
     const subscription = await prisma.subscription.create({
       data: {
@@ -16,6 +33,7 @@ export async function POST(req: NextRequest) {
         mealTypes: data.mealTypes,
         deliveryDays: data.deliveryDays,
         allergies: data.allergies,
+        totalPrice,
       },
     });
     return NextResponse.json(subscription);
