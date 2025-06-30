@@ -163,7 +163,12 @@ function SubscriptionPageContent() {
 					headers: { "Content-Type": "application/json" },
 					credentials: "include",
 					body: JSON.stringify({
-						...formData,
+						name: formData.name,
+						phone: formData.phone,
+						plan: formData.selectedPlan,
+						mealTypes: formData.selectedMealTypes,
+						deliveryDays: formData.selectedDeliveryDays,
+						allergies: formData.allergies,
 						totalPrice,
 					}),
 				})

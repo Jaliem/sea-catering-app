@@ -31,13 +31,33 @@ export default function TestimonialsSection() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch("/api/testimonial")
-      .then((res) => res.json())
-      .then((data) => {
-        setTestimonials(data)
-        setLoading(false)
+    let didCancel = false;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 7000); // 7s timeout
+
+    fetch("/api/testimonial", { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
       })
-      .catch(() => setLoading(false))
+      .then((data) => {
+        if (!didCancel) {
+          setTestimonials(data);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!didCancel) {
+          setLoading(false);
+          console.error("Failed to fetch testimonials:", err);
+        }
+      })
+      .finally(() => clearTimeout(timeout));
+    return () => {
+      didCancel = true;
+      clearTimeout(timeout);
+      controller.abort();
+    };
   }, [])
 
   const nextTestimonial = () => {
