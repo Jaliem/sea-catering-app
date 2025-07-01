@@ -8,10 +8,10 @@ const prisma = new PrismaClient();
 export async function POST(req: NextRequest) {
   const data = await req.json();
   // Backend validation
-  if (!data.name || typeof data.name !== 'string' || data.name.trim().length < 2) {
+  if (!data.name || typeof data.name !== 'string') {
     return NextResponse.json({ error: 'Name is required and must be at least 2 characters.' }, { status: 400 });
   }
-  if (!data.message || typeof data.message !== 'string' || data.message.trim().length < 5) {
+  if (!data.message || typeof data.message !== 'string') {
     return NextResponse.json({ error: 'Message is required and must be at least 5 characters.' }, { status: 400 });
   }
   if (!data.rating || typeof data.rating !== 'number' || data.rating < 1 || data.rating > 5) {

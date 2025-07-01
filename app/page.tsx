@@ -163,7 +163,7 @@ export default function HomePage() {
                 transition={{ duration: 0.3 }}
               >
                 <img
-                  src="/placeholder.svg?height=400&width=500"
+                  src="/catering.jpg"
                   alt="Healthy meal preparation"
                   className="w-full h-80 object-cover rounded-xl"
                 />
@@ -300,7 +300,7 @@ export default function HomePage() {
               viewport={{ once: true }}
             >
               <motion.img
-                src="/placeholder.svg?height=400&width=500"
+                src="/services.jpg"
                 alt="Meal preparation process"
                 className="w-full h-80 object-cover rounded-xl shadow-lg"
                 whileHover={{ scale: 1.02 }}

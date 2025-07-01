@@ -392,10 +392,10 @@ export default function LoginPage() {
                                 transition={{ delay: 0.7 }}
                             >
                                 <p>
-                                    <strong>User:</strong> user@seacatering.com / password123
+                                    <strong>User:</strong> Test@gmail.com / Test123!
                                 </p>
                                 <p>
-                                    <strong>Admin:</strong> admin@seacatering.com / admin123
+                                    <strong>Admin:</strong> admin@example.com / adminpassword
                                 </p>
                             </motion.div>
                         </CardContent>
