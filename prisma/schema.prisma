@@ -21,10 +21,15 @@ model User {
   role          String         @default("user")
   createdAt     DateTime       @default(now())
   subscriptions Subscription[]
+  phone         String?        // Optional
+  address       String?        // Optional
+  dateOfBirth   DateTime?      // Optional
+  preferences   String?        // Optional
 }
 
 model Subscription {
   id            Int      @id @default(autoincrement())
+  status        String   @default("active")
   name          String
   phone         String
   plan          String
@@ -33,6 +38,9 @@ model Subscription {
   allergies     String?
   totalPrice    Float
   createdAt     DateTime @default(now())
+  cancelledAt   DateTime?
+  pausedFrom    DateTime? // Start date of pause period
+  pausedUntil   DateTime? // End date of pause period
   userId        Int
   user          User     @relation(fields: [userId], references: [id])
 }

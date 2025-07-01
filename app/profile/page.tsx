@@ -47,8 +47,8 @@ function ProfilePageContent() {
       const res = await fetch("/api/auth/me", { credentials: "include" })
       if (!res.ok) throw new Error("Failed to fetch user profile")
       const userData = await res.json()
-      setUser(userData)
-      setFormData(userData)
+      setUser(userData.user)
+      setFormData(userData.user)
     } catch (error) {
       setUser(null)
       setMessage("Failed to load profile. Please login again.")

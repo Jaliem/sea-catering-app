@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog"
 import { Users, CreditCard, Shield, Trash2, Edit, Eye } from "lucide-react"
 import AuthGuard from "@/components/auth-guard"
+import { addDays, isAfter, isBefore, parseISO } from "date-fns"
 
 interface User {
   id: string
@@ -34,6 +35,7 @@ interface Subscription {
   totalPrice: number
   status: "active" | "paused" | "cancelled"
   createdAt: string
+  cancelledAt?: string
 }
 
 function AdminPageContent() {
@@ -41,22 +43,49 @@ function AdminPageContent() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false)
+  const [dateRange, setDateRange] = useState<{ start: Date; end: Date }>(
+    () => {
+      const today = new Date();
+      return { start: addDays(today, -30), end: today };
+    }
+  );
 
   useEffect(() => {
     loadData()
   }, [])
 
-  const loadData = () => {
-    // Load users
-    const storedUsers = localStorage.getItem("sea_catering_users")
-    if (storedUsers) {
-      setUsers(JSON.parse(storedUsers))
-    }
+  const mapSubscriptionFields = (sub: any): Subscription => ({
+    ...sub,
+    selectedPlan: sub.plan || sub.selectedPlan,
+    selectedMealTypes: sub.mealTypes || sub.selectedMealTypes || [],
+    selectedDeliveryDays: sub.deliveryDays || sub.selectedDeliveryDays || [],
+  })
 
-    // Load subscriptions
-    const storedSubscriptions = localStorage.getItem("sea_catering_subscriptions")
-    if (storedSubscriptions) {
-      setSubscriptions(JSON.parse(storedSubscriptions))
+  const loadData = async () => {
+    // Fetch users from backend
+    try {
+      const res = await fetch("/api/admin/users", { credentials: "include" })
+      if (res.ok) {
+        const users = await res.json()
+        setUsers(users)
+      } else {
+        setUsers([])
+      }
+    } catch {
+      setUsers([])
+    }
+    // Fetch subscriptions from backend
+    try {
+      const subRes = await fetch("/api/subscription", { credentials: "include" })
+      if (subRes.ok) {
+        const subData = await subRes.json()
+        const mapped = Array.isArray(subData) ? subData.map(mapSubscriptionFields) : []
+        setSubscriptions(mapped)
+      } else {
+        setSubscriptions([])
+      }
+    } catch {
+      setSubscriptions([])
     }
   }
 
@@ -114,25 +143,98 @@ function AdminPageContent() {
     }
   }
 
-  const totalRevenue = subscriptions
-    .filter((sub) => sub.status === "active")
-    .reduce((sum, sub) => sum + sub.totalPrice, 0)
+  // Filter subscriptions by date range
+  const filteredSubscriptions = subscriptions.filter((sub) => {
+    const created = new Date(sub.createdAt)
+    return (
+      (!dateRange.start || !isBefore(created, dateRange.start)) &&
+      (!dateRange.end || !isAfter(created, dateRange.end))
+    )
+  })
+
+  // New subscriptions in range
+  const newSubscriptions = filteredSubscriptions.length
+
+  // MRR: sum of totalPrice for active subscriptions in range
+  const mrr = filteredSubscriptions.filter((s) => s.status === "active").reduce((sum, s) => sum + s.totalPrice, 0)
+
+  // Reactivations: subscriptions that were cancelled and then restarted in range
+  // (Assume a subscription with status 'active' and a previous 'cancelledAt' in range)
+  const reactivations = subscriptions.filter(
+    (s) => s.status === "active" && s.cancelledAt &&
+      (!dateRange.start || !isBefore(new Date(s.cancelledAt), dateRange.start)) &&
+      (!dateRange.end || !isAfter(new Date(s.cancelledAt), dateRange.end))
+  ).length
+
+  // Subscription growth: total active subscriptions
+  const subscriptionGrowth = subscriptions.filter((s) => s.status === "active").length
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-12 px-4">
       <div className="container mx-auto max-w-7xl">
-        {/* Header */}
-        <div className="text-center mb-8 animate-fade-in-up">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4 flex items-center justify-center gap-2">
-            <Shield className="h-8 w-8 text-blue-600" />
-            Admin Dashboard
-          </h1>
-          <p className="text-lg text-gray-600">Manage users and subscriptions</p>
+        {/* Date Range Selector */}
+        <div className="mb-8 flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="flex items-center gap-2">
+            <label className="font-medium">Date Range:</label>
+            <input
+              type="date"
+              value={dateRange.start.toISOString().slice(0, 10)}
+              onChange={e => setDateRange(r => ({ ...r, start: new Date(e.target.value) }))}
+              className="border rounded px-2 py-1"
+            />
+            <span>-</span>
+            <input
+              type="date"
+              value={dateRange.end.toISOString().slice(0, 10)}
+              onChange={e => setDateRange(r => ({ ...r, end: new Date(e.target.value) }))}
+              className="border rounded px-2 py-1"
+            />
+          </div>
         </div>
-
         {/* Stats Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
+        <div className="grid md:grid-cols-5 gap-6 mb-8">
           <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl animate-fade-in-up animation-delay-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">New Subscriptions</CardTitle>
+              <Users className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{newSubscriptions}</div>
+              <p className="text-xs text-muted-foreground">in selected period</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl animate-fade-in-up animation-delay-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">MRR</CardTitle>
+              <CreditCard className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatPrice(mrr)}</div>
+              <p className="text-xs text-muted-foreground">from active subscriptions</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl animate-fade-in-up animation-delay-400">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Reactivations</CardTitle>
+              <Shield className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{reactivations}</div>
+              <p className="text-xs text-muted-foreground">in selected period</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl animate-fade-in-up animation-delay-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Subscription Growth</CardTitle>
+              <CreditCard className="h-4 w-4 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{subscriptionGrowth}</div>
+              <p className="text-xs text-muted-foreground">active subscriptions</p>
+            </CardContent>
+          </Card>
+          {/* Keep the old total users card for reference */}
+          <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl animate-fade-in-up animation-delay-600">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Users</CardTitle>
               <Users className="h-4 w-4 text-blue-600" />
@@ -140,34 +242,8 @@ function AdminPageContent() {
             <CardContent>
               <div className="text-2xl font-bold">{users.length}</div>
               <p className="text-xs text-muted-foreground">
-                {users.filter((u) => u.role === "admin").length} admins, {users.filter((u) => u.role === "user").length}{" "}
-                users
+                {users.filter((u) => u.role === "admin").length} admins, {users.filter((u) => u.role === "user").length} users
               </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl animate-fade-in-up animation-delay-300">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
-              <CreditCard className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{subscriptions.filter((s) => s.status === "active").length}</div>
-              <p className="text-xs text-muted-foreground">
-                {subscriptions.filter((s) => s.status === "paused").length} paused,{" "}
-                {subscriptions.filter((s) => s.status === "cancelled").length} cancelled
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-xl animate-fade-in-up animation-delay-400">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
-              <CreditCard className="h-4 w-4 text-emerald-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatPrice(totalRevenue)}</div>
-              <p className="text-xs text-muted-foreground">From active subscriptions</p>
             </CardContent>
           </Card>
         </div>

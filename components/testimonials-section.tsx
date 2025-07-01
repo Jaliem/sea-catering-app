@@ -78,11 +78,14 @@ export default function TestimonialsSection() {
       })
       if (!response.ok) throw new Error('Failed to submit testimonial')
       // Optionally, fetch the updated testimonials list
-      const updated = await fetch('/api/testimonial').then(res => res.json())
-      setTestimonials(updated)
+      // const updated = await fetch('/api/testimonial').then(res => res.json())
+      // setTestimonials(updated)
+      // setCurrentTestimonial(0)
+      // setNewTestimonial({ name: '', message: '', rating: 5 })
       alert('Thank you for your testimonial! It will be reviewed and published soon.')
-      setNewTestimonial({ name: '', message: '', rating: 5 })
       setIsDialogOpen(false)
+      // Force a full page reload to refresh testimonials
+      window.location.reload()
     } catch (err) {
       alert('There was an error submitting your testimonial. Please try again.')
     }

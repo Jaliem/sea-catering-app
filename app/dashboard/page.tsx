@@ -62,44 +62,50 @@ function UserDashboardContent() {
     loadData()
   }, [])
 
-  const loadData = () => {
-    try {
-      // Get current user
-      const currentUser = localStorage.getItem("sea_catering_current_user")
-      if (currentUser) {
-        const userData = JSON.parse(currentUser)
-        setUser(userData)
+  const mapSubscriptionFields = (sub: any): Subscription => ({
+    ...sub,
+    selectedPlan: sub.plan || sub.selectedPlan,
+    selectedMealTypes: sub.mealTypes || sub.selectedMealTypes || [],
+    selectedDeliveryDays: sub.deliveryDays || sub.selectedDeliveryDays || [],
+  })
 
-        // Get user's subscriptions
-        const allSubscriptions = JSON.parse(localStorage.getItem("sea_catering_subscriptions") || "[]")
-        const userSubscriptions = allSubscriptions.filter((sub: Subscription) => sub.userId === userData.id)
-        setSubscriptions(userSubscriptions)
-      }
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      // Fetch user info
+      const userRes = await fetch("/api/auth/me", { credentials: "include" })
+      const userData = await userRes.json()
+      setUser(userData.user)
+      // Fetch subscriptions for this user
+      const subRes = await fetch("/api/subscription", { credentials: "include" })
+      if (!subRes.ok) throw new Error("Failed to fetch subscriptions")
+      const subData = await subRes.json()
+      const mapped = Array.isArray(subData) ? subData.map(mapSubscriptionFields) : []
+      setSubscriptions(mapped)
     } catch (error) {
-      console.error("Error loading data:", error)
+      setMessage("Failed to load dashboard data.")
+      setMessageType("error")
     } finally {
       setLoading(false)
     }
   }
 
-  const handlePauseSubscription = () => {
+  const handlePauseSubscription = async () => {
     if (!selectedSubscription || !pauseFromDate || !pauseUntilDate) return
-
     try {
-      const allSubscriptions = JSON.parse(localStorage.getItem("sea_catering_subscriptions") || "[]")
-      const updatedSubscriptions = allSubscriptions.map((sub: Subscription) =>
-        sub.id === selectedSubscription.id
-          ? {
-              ...sub,
-              status: "paused" as const,
-              pausedFrom: pauseFromDate.toISOString(),
-              pausedUntil: pauseUntilDate.toISOString(),
-            }
-          : sub,
-      )
-
-      localStorage.setItem("sea_catering_subscriptions", JSON.stringify(updatedSubscriptions))
-      loadData()
+      const res = await fetch(`/api/subscription`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          id: selectedSubscription.id,
+          action: "pause",
+          pausedFrom: pauseFromDate.toISOString(),
+          pausedUntil: pauseUntilDate.toISOString(),
+        }),
+      })
+      if (!res.ok) throw new Error("Failed to pause subscription")
+      await loadData()
       setShowPauseDialog(false)
       setSelectedSubscription(null)
       setPauseFromDate(undefined)
@@ -114,22 +120,19 @@ function UserDashboardContent() {
     }
   }
 
-  const handleResumeSubscription = (subscriptionId: string) => {
+  const handleResumeSubscription = async (subscriptionId: string) => {
     try {
-      const allSubscriptions = JSON.parse(localStorage.getItem("sea_catering_subscriptions") || "[]")
-      const updatedSubscriptions = allSubscriptions.map((sub: Subscription) =>
-        sub.id === subscriptionId
-          ? {
-              ...sub,
-              status: "active" as const,
-              pausedFrom: undefined,
-              pausedUntil: undefined,
-            }
-          : sub,
-      )
-
-      localStorage.setItem("sea_catering_subscriptions", JSON.stringify(updatedSubscriptions))
-      loadData()
+      const res = await fetch(`/api/subscription`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          id: subscriptionId,
+          action: "resume",
+        }),
+      })
+      if (!res.ok) throw new Error("Failed to resume subscription")
+      await loadData()
       setMessage("Subscription resumed successfully!")
       setMessageType("success")
       setTimeout(() => setMessage(""), 3000)
@@ -140,23 +143,20 @@ function UserDashboardContent() {
     }
   }
 
-  const handleCancelSubscription = () => {
+  const handleCancelSubscription = async () => {
     if (!selectedSubscription) return
-
     try {
-      const allSubscriptions = JSON.parse(localStorage.getItem("sea_catering_subscriptions") || "[]")
-      const updatedSubscriptions = allSubscriptions.map((sub: Subscription) =>
-        sub.id === selectedSubscription.id
-          ? {
-              ...sub,
-              status: "cancelled" as const,
-              cancelledAt: new Date().toISOString(),
-            }
-          : sub,
-      )
-
-      localStorage.setItem("sea_catering_subscriptions", JSON.stringify(updatedSubscriptions))
-      loadData()
+      const res = await fetch(`/api/subscription`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          id: selectedSubscription.id,
+          action: "cancel",
+        }),
+      })
+      if (!res.ok) throw new Error("Failed to cancel subscription")
+      await loadData()
       setShowCancelDialog(false)
       setSelectedSubscription(null)
       setMessage("Subscription cancelled successfully!")
@@ -354,9 +354,11 @@ function UserDashboardContent() {
                               </div>
                             </Badge>
                           </div>
-                          <p className="text-gray-600 mb-2">Meals: {subscription.selectedMealTypes.join(", ")}</p>
                           <p className="text-gray-600 mb-2">
-                            Delivery: {subscription.selectedDeliveryDays.length} days per week
+                            Meals: {(subscription.selectedMealTypes || []).join(", ")}
+                          </p>
+                          <p className="text-gray-600 mb-2">
+                            Delivery: {subscription.selectedDeliveryDays}
                           </p>
                           <p className="text-lg font-semibold text-emerald-600">
                             {formatPrice(subscription.totalPrice)}/month

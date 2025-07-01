@@ -75,3 +75,71 @@ export async function GET() {
   const subscriptions = await prisma.subscription.findMany();
   return NextResponse.json(subscriptions);
 }
+
+// Update (pause, resume, cancel) a subscription
+export async function PUT(req: NextRequest) {
+  try {
+    const data = await req.json();
+    // Get user from JWT cookie
+    const token = req.cookies.get('token')?.value;
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    let userId;
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      userId = typeof decoded === 'object' && 'id' in decoded ? decoded.id : null;
+      if (!userId) throw new Error('Invalid token');
+    } catch {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    // Validate subscription id
+    if (!data.id) {
+      return NextResponse.json({ error: 'Subscription id required' }, { status: 400 });
+    }
+    // Find subscription and check ownership
+    const subscription = await prisma.subscription.findUnique({ where: { id: Number(data.id) } });
+    if (!subscription || subscription.userId !== userId) {
+      return NextResponse.json({ error: 'Not found or forbidden' }, { status: 404 });
+    }
+    // Handle actions
+    if (data.action === 'pause') {
+      if (!data.pausedFrom || !data.pausedUntil) {
+        return NextResponse.json({ error: 'Pause dates required' }, { status: 400 });
+      }
+      const updated = await prisma.subscription.update({
+        where: { id: Number(data.id) },
+        data: {
+          status: 'paused',
+          pausedFrom: data.pausedFrom,
+          pausedUntil: data.pausedUntil,
+        },
+      });
+      return NextResponse.json(updated);
+    } else if (data.action === 'resume') {
+      const updated = await prisma.subscription.update({
+        where: { id: Number(data.id) },
+        data: {
+          status: 'active',
+          pausedFrom: null,
+          pausedUntil: null,
+        },
+      });
+      return NextResponse.json(updated);
+    } else if (data.action === 'cancel') {
+      const updated = await prisma.subscription.update({
+        where: { id: Number(data.id) },
+        data: {
+          status: 'cancelled',
+          cancelledAt: new Date().toISOString(),
+        },
+      });
+      return NextResponse.json(updated);
+    } else {
+      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    }
+  } catch (error) {
+    console.error('Subscription update error:', error);
+    return NextResponse.json({ error: 'Failed to update subscription', details: error }, { status: 500 });
+  }
+}

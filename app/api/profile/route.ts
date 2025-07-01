@@ -45,7 +45,7 @@ export async function PUT(req: NextRequest) {
         phone,
         address,
         dateOfBirth,
-        preferences,
+        preferences: preferences ? JSON.stringify(preferences) : undefined,
       },
     })
     // Exclude sensitive fields
